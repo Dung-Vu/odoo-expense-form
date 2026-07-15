@@ -1,6 +1,7 @@
 """Test expense creation WITH file attachment."""
 import os
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 import base64
 from dotenv import load_dotenv
 
@@ -11,8 +12,8 @@ from odoo_client import OdooClient, OdooError
 c = OdooClient(
     url=os.environ["ODOO_URL"],
     db=os.environ["ODOO_DB"],
-    username=os.environ["ODOO_USER"],
     api_key=os.environ["ODOO_API_KEY"],
+    uid=os.environ["ODOO_UID"],
 )
 
 # Tiny fake receipt (a 1x1 PNG)
@@ -78,4 +79,6 @@ result = c.search_read("hr.expense", [("id", "=", expense_id)], ["state"])
 print(f"    State: {result[0]['state']}")
 
 print(f"\n✓ Attachment test passed.")
-print(f"\n→ View: https://{os.environ['PUBLIC_ODOO_DOMAIN']}/odoo/expenses/{expense_id}?debug=1")
+from urllib.parse import urlparse
+public_domain = os.environ.get("PUBLIC_ODOO_DOMAIN") or urlparse(os.environ["ODOO_URL"]).netloc or "odoo.com"
+print(f"\n→ View: https://{public_domain}/odoo/expenses/{expense_id}?debug=1")

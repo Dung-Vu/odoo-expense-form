@@ -1,6 +1,7 @@
 """Full create + submit test against testing1307."""
 import os
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,8 +11,8 @@ from odoo_client import OdooClient, OdooError
 c = OdooClient(
     url=os.environ["ODOO_URL"],
     db=os.environ["ODOO_DB"],
-    username=os.environ["ODOO_USER"],
     api_key=os.environ["ODOO_API_KEY"],
+    uid=os.environ["ODOO_UID"],
 )
 
 # Test inputs
@@ -82,4 +83,6 @@ print(f"    Manager:        {expense['manager_id'][1] if expense['manager_id'] e
 print(f"    Followers:      {len(expense['message_follower_ids'])} persons")
 
 print(f"\n✓ Full test passed.")
-print(f"\n→ View in Odoo: https://{os.environ['PUBLIC_ODOO_DOMAIN']}/odoo/expenses/{expense_id}?debug=1")
+from urllib.parse import urlparse
+public_domain = os.environ.get("PUBLIC_ODOO_DOMAIN") or urlparse(os.environ["ODOO_URL"]).netloc or "odoo.com"
+print(f"\n→ View in Odoo: https://{public_domain}/odoo/expenses/{expense_id}?debug=1")

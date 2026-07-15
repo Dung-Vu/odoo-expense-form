@@ -1,56 +1,40 @@
 # Odoo Expense Submission Form
 
-Web form → Odoo SaaS via JSON-RPC. Replaces the email-to-`expense@` workflow and fixes multi-company routing.
+A simple web form for employees to submit business expenses directly to Odoo.
 
-> **Full project context, architecture, Odoo integration notes, and gotchas: see [`AGENTS.md`](./AGENTS.md).**
+## Why this exists
 
-## Quick start
+Previously, employees submitted expenses by sending emails to a shared mailbox (e.g., `expense@your-tenant.odoo.com`). However, because Odoo could not determine which company the expense belonged to, records were frequently created under the wrong company and required manual correction.
 
+This web form solves the routing problem by allowing users to explicitly select the correct company and employee when submitting an expense.
+
+## Features
+
+- **Company Selection:** Choose the correct company before submitting.
+- **Employee Dropdown:** Select the submitter's name (filtered automatically based on the chosen company).
+- **Category & Currency:** Select the expense type (category) and specify the amount.
+- **Payment Method & Vendor:** Choose whether the expense is paid by the employee or by the company (requires selecting a vendor).
+- **Receipt Upload:** Attach a receipt (image or PDF) directly to the expense.
+- **Direct Link:** Provides a direct link to view the submitted expense in Odoo.
+
+## Quick Start
+
+### 1. Configure the environment
+Copy `.env.example` to `.env` and fill in the required variables:
+```env
+ODOO_URL=https://your-tenant.odoo.com
+ODOO_DB=your-db-name
+ODOO_UID=your_uid
+ODOO_API_KEY=your_odoo_api_key
+```
+
+### 2. Run the application
+Start the service using Docker:
 ```bash
-# 1. Configure
-cp .env.example .env
-# edit .env with your ODOO_URL, ODOO_DB, ODOO_USER, ODOO_API_KEY, PUBLIC_ODOO_DOMAIN
-
-# 2. Run
 docker compose up -d --build
-
-# 3. Open
-open http://localhost:5050
 ```
 
-> **Port 5050** (not 5000) — chosen to avoid conflicts with macOS Control Center which occupies :5000.
-
-## Requirements
-
-- Docker + docker-compose
-- An Odoo user with:
-  - API key generated (Settings → My Profile → Account Security → API Keys)
-  - `group_hr_expense_manager` group (Expense / Administrator) — required for `action_submit()` to work for other employees
-  - Access to all target companies (Settings → Users → Allowed Companies)
-
-## Test
-
-```bash
-curl -X POST http://localhost:5050/submit \
-  -F "company_id=1" \
-  -F "employee_id=42" \
-  -F "product_id=15" \
-  -F "currency_id=21" \
-  -F "total_amount=150000" \
-  -F "date=2026-07-14" \
-  -F "description=Test"
-```
-
-Or open in browser, fill, submit.
-
-## Health
-
-```bash
-curl http://localhost:5050/health
-```
-
-## Logs
-
-```bash
-docker compose logs -f web
-```
+### 3. Access the form
+Open your browser and navigate to:
+- Local address: `http://localhost:5055`
+- Public address: `https://chiphi.bonstu.site`

@@ -3,7 +3,13 @@ services:
     build: .
     container_name: odoo-expense-form
     ports:
-      - "5050:5000"
+      - "5055:5000"
     env_file:
       - .env
+    networks:
+      - bonario-shared-tunnel
     restart: unless-stopped
+
+networks:
+  bonario-shared-tunnel:
+    external: true

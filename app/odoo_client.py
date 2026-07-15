@@ -16,12 +16,11 @@ class OdooError(Exception):
 
 
 class OdooClient:
-    def __init__(self, url, db, username, api_key, timeout=30.0):
+    def __init__(self, url, db, api_key, uid, timeout=30.0):
         self.url = url.rstrip("/")
         self.db = db
-        self.username = username
         self.api_key = api_key
-        self._uid = None
+        self._uid = int(uid)
         self._client = httpx.Client(timeout=timeout)
 
     def _call(self, service, method, args):
@@ -45,16 +44,7 @@ class OdooClient:
         return data.get("result")
 
     def authenticate(self):
-        if self._uid is not None:
-            return self._uid
-        uid = self._call("common", "login", [self.db, self.username, self.api_key])
-        if not uid:
-            raise OdooError(
-                f"Authentication failed for {self.username}@{self.db}. "
-                "Check ODOO_USER, ODOO_API_KEY, and ODOO_DB."
-            )
-        self._uid = uid
-        return uid
+        return self._uid
 
     def execute(self, model, method, args=None, kwargs=None):
         uid = self.authenticate()

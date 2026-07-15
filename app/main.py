@@ -11,6 +11,7 @@ import logging
 import os
 import time
 from datetime import date
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
@@ -47,31 +48,14 @@ log = logging.getLogger("odoo-expense-form")
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB
 
-
-_STATE_LABELS = {
-    "draft": "Nháp",
-    "submitted": "Đã gửi",
-    "approved": "Đã duyệt",
-    "refused": "Từ chối",
-    "posted": "Đã ghi sổ",
-    "in_payment": "Đang thanh toán",
-    "paid": "Đã thanh toán",
-}
-
-
-@app.template_filter("state_label")
-def _state_label(state: str) -> str:
-    return _STATE_LABELS.get(state, state)
-
-
 odoo = OdooClient(
     url=os.environ["ODOO_URL"],
     db=os.environ["ODOO_DB"],
-    username=os.environ["ODOO_USER"],
     api_key=os.environ["ODOO_API_KEY"],
+    uid=os.environ["ODOO_UID"],
 )
 
-PUBLIC_ODOO_DOMAIN = os.environ.get("PUBLIC_ODOO_DOMAIN", "odoo.com")
+PUBLIC_ODOO_DOMAIN = urlparse(os.environ["ODOO_URL"]).netloc or "odoo.com"
 
 # Dropdown cache (5 min)
 _cache = {"data": None, "expires": 0}
@@ -141,7 +125,7 @@ def get_dropdowns():
         "vendors": odoo.search_read(
             "res.partner",
             [("supplier_rank", ">", 0), ("company_id", "in", company_ids)],
-            ["id", "name"],
+            ["id", "name", "company_id"],
             order="name",
         ),
     }
@@ -183,12 +167,12 @@ def submit():
         vendor_id = request.form.get("vendor_id")
 
         if total_amount <= 0:
-            raise ValueError("Số tiền phải lớn hơn 0")
+            raise ValueError("Amount must be positive")
         if payment_mode not in ("own_account", "company_account"):
-            raise ValueError(f"Hình thức thanh toán không hợp lệ: {payment_mode}")
+            raise ValueError(f"Invalid payment_mode: {payment_mode}")
         if payment_mode == "company_account":
             if not vendor_id:
-                raise ValueError("Phải chọn nhà cung cấp khi Công ty chi trả")
+                raise ValueError("Vendor is required when payment_mode = company_account")
             vendor_id = int(vendor_id)
         else:
             vendor_id = False
@@ -271,14 +255,14 @@ def submit():
         )
 
     except OdooError as e:
-        log.exception("Lỗi Odoo khi gửi")
+        log.exception("Odoo error during submit")
         return render_template("_error.html", error=str(e)), 400
     except (ValueError, KeyError) as e:
-        log.exception("Lỗi validate khi gửi")
-        return render_template("_error.html", error=f"Dữ liệu form không hợp lệ: {e}"), 400
+        log.exception("Validation error during submit")
+        return render_template("_error.html", error=f"Invalid form data: {e}"), 400
     except Exception as e:
-        log.exception("Lỗi không mong đợi khi gửi")
-        return render_template("_error.html", error=f"Lỗi không mong đợi: {e}"), 500
+        log.exception("Unexpected error during submit")
+        return render_template("_error.html", error=f"Unexpected error: {e}"), 500
 
 
 if __name__ == "__main__":

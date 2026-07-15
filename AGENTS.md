@@ -2,7 +2,7 @@
 
 A tiny web form that submits expenses to **Odoo SaaS** via JSON-RPC, replacing the email-to-`expense@` workflow. Solves the multi-company routing problem by letting the user explicitly pick the company in the form.
 
-> **One-paragraph context for future agents:** The company (Bonario Vietnam) uses Odoo 19 SaaS with 2 companies. The old workflow was email-based: employees sent receipts to `expense@bonario-vietnam.odoo.com` with a category code in the subject (e.g. `[KHSHIPLL]`). The problem — a shared mailbox meant Odoo couldn't tell which company the expense belonged to, so records were often created under the wrong company and had to be fixed manually. This form fixes that by making the user pick the company explicitly before submitting.
+> **One-paragraph context for future agents:** The company uses Odoo 19 SaaS with 2 companies. The old workflow was email-based: employees sent receipts to `expense@your-tenant.odoo.com` with a category code in the subject (e.g. `[KHSHIPLL]`). The problem — a shared mailbox meant Odoo couldn't tell which company the expense belonged to, so records were often created under the wrong company and had to be fixed manually. This form fixes that by making the user pick the company explicitly before submitting.
 
 ---
 
@@ -35,7 +35,7 @@ A tiny web form that submits expenses to **Odoo SaaS** via JSON-RPC, replacing t
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Flask app (Docker, :5000)                                   │
-│  • reads .env → ODOO_URL, ODOO_DB, ODOO_USER, ODOO_API_KEY │
+│  • reads .env → ODOO_URL, ODOO_DB, ODOO_UID, ODOO_API_KEY    │
 │  • GET /: loads dropdowns from Odoo, caches 5 min          │
 │  • POST /submit: calls hr.expense.create + action_submit    │
 └─────────────────────────────────────────────────────────────┘
@@ -43,7 +43,6 @@ A tiny web form that submits expenses to **Odoo SaaS** via JSON-RPC, replacing t
                           ▼  ODOO_API_KEY in .env (browser never sees it)
 ┌─────────────────────────────────────────────────────────────┐
 │  Odoo SaaS (https://<tenant>.odoo.com)                       │
-│  common.login(db, user, api_key) → uid                       │
 │  execute_kw('hr.expense', 'create', [vals]) → expense_id    │
 │  execute_kw('hr.expense', 'action_submit', [[id]])           │
 │  execute_kw('ir.attachment', 'create', [attachment_vals])   │
@@ -105,9 +104,8 @@ odoo-expense-form/
    ```
    ODOO_URL=https://testing1307.odoo.com   # or production URL
    ODOO_DB=testing1307                     # Odoo database name
-   ODOO_USER=jeremy@bonario-vietnam.com    # the broker user (admin)
+   ODOO_UID=208                            # Broker user ID (admin)
    ODOO_API_KEY=xxxxxxxxxxxxxxxx           # API key from that user's profile
-   PUBLIC_ODOO_DOMAIN=testing1307.odoo.com # used to build "View in Odoo" link
    ```
 3. `docker compose up -d --build`
 4. Open `http://<host>:5050` — **port 5050, not 5000** (5000 is occupied by macOS Control Center; on Windows any free port works)
@@ -321,10 +319,8 @@ docker compose logs -f web
 ### Run a one-off Odoo query
 ```bash
 docker compose exec web python -c "
-from app.odoo_client import OdooClient
-import os
 c = OdooClient(os.environ['ODOO_URL'], os.environ['ODOO_DB'],
-               os.environ['ODOO_USER'], os.environ['ODOO_API_KEY'])
+               os.environ['ODOO_API_KEY'], os.environ['ODOO_UID'])
 print(c.search_read('hr.expense', [], ['name','state','employee_id','company_id','total_amount_currency'], limit=5))
 "
 ```
@@ -337,9 +333,8 @@ print(c.search_read('hr.expense', [], ['name','state','employee_id','company_id'
 |---|---|---|---|
 | `ODOO_URL` | yes | `https://testing1307.odoo.com` | Odoo base URL (no trailing slash) |
 | `ODOO_DB` | yes | `testing1307` | Odoo database name |
-| `ODOO_USER` | yes | `jeremy@bonario-vietnam.com` | Broker Odoo login |
+| `ODOO_UID` | yes | `208` | Broker Odoo user ID |
 | `ODOO_API_KEY` | yes | `abc123...` | Broker's API key |
-| `PUBLIC_ODOO_DOMAIN` | yes | `testing1307.odoo.com` | Used to build "View in Odoo" link in success message |
 | `COMPANY_IDS` | yes | `1,11` | Comma-separated `res.company` IDs shown in Company dropdown |
 | `EMPLOYEE_NAME_KEYWORDS` | yes | `Phước,Thành,Công,Biên,Chinh` | Comma-separated name fragments. Matched against the **last whitespace-delimited word** of each employee name (Vietnamese given name). Case-insensitive. |
 | `CATEGORY_IDS` | yes | `26807,26758,157600,...` | Comma-separated `product.product` IDs. Simple `id IN (...)` filter — fast and unambiguous. Find IDs in Odoo or via `search_read("product.product", [("can_be_expensed","=",True)], ["id","default_code","name"])`. |
@@ -374,8 +369,8 @@ To add/remove an employee: edit `EMPLOYEE_NAME_KEYWORDS` in `.env` and restart t
 ## Quick Reference: Odoo JSON-RPC Calls Used
 
 ```python
-# Authenticate
-uid = client.execute('common', 'login', [db, user, api_key])
+# Authenticate (direct via ODOO_UID)
+uid = client.authenticate()
 
 # Create expense
 expense_id = client.create('hr.expense', [{
@@ -415,4 +410,4 @@ result = client.search_read('hr.expense',
 - [x] Source-code-aligned design (mirrors `hr.expense.message_new` pattern)
 - [x] **Tested on testing1307** — 2 records created (5102, 5103), both submitted successfully
 - [ ] Deploy to Windows host 24/7
-- [ ] Migrate config to production `bonario-vietnam.odoo.com`
+- [ ] Migrate config to production `your-tenant.odoo.com`

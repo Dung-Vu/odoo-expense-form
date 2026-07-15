@@ -10,9 +10,9 @@
   <div class="grid">
 
     <label class="full">
-      <span>Công ty <em>*</em></span>
+      <span>Company <em>*</em></span>
       <select name="company_id" required>
-        <option value="">-- Chọn công ty --</option>
+        <option value="">-- Select company --</option>
         {% for c in dropdowns.companies %}
           <option value="{{ c.id }}">{{ c.name }}</option>
         {% endfor %}
@@ -20,11 +20,11 @@
     </label>
 
     <label class="full">
-      <span>Nhân viên <em>*</em></span>
-      <select name="employee_id" required>
-        <option value="">-- Chọn nhân viên --</option>
+      <span>Employee <em>*</em></span>
+      <select name="employee_id" id="employee-id" required>
+        <option value="">-- Select employee --</option>
         {% for e in dropdowns.employees %}
-          <option value="{{ e.id }}">
+          <option value="{{ e.id }}" data-company-id="{{ e.company_id[0] if e.company_id else '' }}">
             {{ e.name }}{% if e.company_id %} ({{ e.company_id[1] }}){% endif %}
           </option>
         {% endfor %}
@@ -32,9 +32,9 @@
     </label>
 
     <label class="full">
-      <span>Hạng mục <em>*</em></span>
+      <span>Category <em>*</em></span>
       <select name="product_id" required>
-        <option value="">-- Chọn hạng mục --</option>
+        <option value="">-- Select category --</option>
         {% for p in dropdowns.categories %}
           <option value="{{ p.id }}">
             {{ p.default_code or '—' }} · {{ p.name }}
@@ -43,14 +43,14 @@
       </select>
     </label>
 
-    <label class="full">
-      <span>Ngày <em>*</em></span>
+    <label>
+      <span>Date <em>*</em></span>
       <input type="date" name="date" required value="{{ today }}">
     </label>
 
     {% if dropdowns.currencies|length > 1 %}
       <label>
-        <span>Tiền tệ <em>*</em></span>
+        <span>Currency <em>*</em></span>
         <select name="currency_id" required>
           {% for cur in dropdowns.currencies %}
             <option value="{{ cur.id }}">{{ cur.name }} ({{ cur.symbol }})</option>
@@ -63,48 +63,51 @@
 
     <label class="full">
       <span>
-        Số tiền <em>*</em>
+        Amount <em>*</em>
         {% if dropdowns.currencies|length == 1 %}
           <small class="currency-suffix-inline">({{ dropdowns.currencies[0].name }} {{ dropdowns.currencies[0].symbol }})</small>
         {% endif %}
       </span>
-      <input type="number" name="total_amount" step="0.01" min="0.01" required placeholder="0">
+      <input type="number" name="total_amount" step="0.01" min="0.01" required placeholder="0.00">
     </label>
 
+    {% if dropdowns.currencies|length == 1 %}
+      <input type="hidden" name="currency_id" value="{{ dropdowns.currencies[0].id }}">
+    {% endif %}
+
     <label class="full">
-      <span>Người chi trả <em>*</em></span>
+      <span>Paid by <em>*</em></span>
       <select name="payment_mode" id="payment-mode" required>
-        <option value="own_account" selected>Nhân viên (công ty sẽ hoàn lại)</option>
-        <option value="company_account">Công ty chi trả</option>
+        <option value="own_account" selected>Employee (to reimburse)</option>
+        <option value="company_account">Company</option>
       </select>
     </label>
 
     <label class="full" id="vendor-wrap" style="display: none;">
-      <span>Nhà cung cấp <em>*</em> <small>(bắt buộc khi Công ty chi trả)</small></span>
+      <span>Vendor <em>*</em> <small>(required when paid by Company)</small></span>
       <select name="vendor_id" id="vendor-id">
-        <option value="">-- Chọn nhà cung cấp --</option>
+        <option value="">-- Select vendor --</option>
         {% for v in dropdowns.vendors %}
-          <option value="{{ v.id }}">{{ v.name }}</option>
+          <option value="{{ v.id }}" data-company-id="{{ v.company_id[0] if v.company_id else '' }}">{{ v.name }}</option>
         {% endfor %}
       </select>
     </label>
 
     <label class="full">
-      <span>Ghi chú <small>(nội bộ)</small></span>
-      <textarea name="description" rows="2" placeholder="vd: Phí ship Lalamove đơn #XYZ"></textarea>
+      <span>Description (internal notes)</span>
+      <textarea name="description" rows="2" placeholder="e.g. Phí ship Lalamove đơn #XYZ"></textarea>
     </label>
 
-    <label class="full file-label">
-      <span>Hóa đơn <small>(PDF / ảnh, tối đa 16MB)</small></span>
-      <input type="file" name="receipt" accept="image/*,application/pdf" id="receipt-input">
-      <span class="file-name" id="file-name">Chưa chọn file</span>
+    <label class="full">
+      <span>Receipt <small>(PDF / image, max 16MB)</small></span>
+      <input type="file" name="receipt" accept="image/*,application/pdf">
     </label>
 
   </div>
 
   <div class="actions">
-    <button type="submit" class="primary">Gửi chi phí</button>
-    <span class="htmx-indicator" id="loading">Đang gửi...</span>
+    <button type="submit" class="primary">Submit Expense</button>
+    <span class="htmx-indicator" id="loading">Submitting...</span>
   </div>
 </form>
 
@@ -128,12 +131,52 @@
   pm.addEventListener('change', syncVendor);
   syncVendor();
 
-  // Show selected file name
-  const fi = document.getElementById('receipt-input');
-  const fn = document.getElementById('file-name');
-  fi.addEventListener('change', () => {
-    fn.textContent = fi.files[0] ? fi.files[0].name : 'Chưa chọn file';
-  });
+  // Dynamically filter Employee and Vendor options based on the selected Company
+  const companySelect = document.querySelector('select[name="company_id"]');
+  const employeeSelect = document.getElementById('employee-id');
+  const vendorSelect = document.getElementById('vendor-id');
+
+  const employeePlaceholder = employeeSelect.options[0].cloneNode(true);
+  const vendorPlaceholder = vendorSelect.options[0].cloneNode(true);
+
+  // Keep master copies of the options (skipping placeholder)
+  const masterEmployees = Array.from(employeeSelect.options).slice(1);
+  const masterVendors = Array.from(vendorSelect.options).slice(1);
+
+  function filterSelect(selectEl, placeholder, masterOptions, selectedCompanyId) {
+    const currentValue = selectEl.value;
+    selectEl.innerHTML = '';
+    selectEl.appendChild(placeholder.cloneNode(true));
+
+    let hasCurrentValue = false;
+    masterOptions.forEach(opt => {
+      const optCompanyId = opt.getAttribute('data-company-id');
+      // Show if no company is selected, or if the option is shared, or if it matches the selected company
+      if (!selectedCompanyId || !optCompanyId || optCompanyId === selectedCompanyId) {
+        const cloned = opt.cloneNode(true);
+        selectEl.appendChild(cloned);
+        if (cloned.value === currentValue) {
+          hasCurrentValue = true;
+        }
+      }
+    });
+
+    if (hasCurrentValue) {
+      selectEl.value = currentValue;
+    } else {
+      selectEl.value = '';
+    }
+  }
+
+  function syncCompanyFilters() {
+    const selectedCompanyId = companySelect.value;
+    filterSelect(employeeSelect, employeePlaceholder, masterEmployees, selectedCompanyId);
+    filterSelect(vendorSelect, vendorPlaceholder, masterVendors, selectedCompanyId);
+  }
+
+  companySelect.addEventListener('change', syncCompanyFilters);
+  syncCompanyFilters();
+
 </script>
 
 <style>

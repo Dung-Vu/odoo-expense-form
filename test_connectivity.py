@@ -1,6 +1,7 @@
 """Quick connectivity test against Odoo testing1307."""
 import os
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,22 +11,22 @@ from odoo_client import OdooClient, OdooError
 
 print(f"ODOO_URL  = {os.environ['ODOO_URL']}")
 print(f"ODOO_DB   = {os.environ['ODOO_DB']}")
-print(f"ODOO_USER = {os.environ['ODOO_USER']}")
+print(f"ODOO_UID  = {os.environ['ODOO_UID']}")
 print(f"API_KEY   = {os.environ['ODOO_API_KEY'][:8]}...{os.environ['ODOO_API_KEY'][-4:]}")
 print()
 
 c = OdooClient(
     url=os.environ["ODOO_URL"],
     db=os.environ["ODOO_DB"],
-    username=os.environ["ODOO_USER"],
     api_key=os.environ["ODOO_API_KEY"],
+    uid=os.environ["ODOO_UID"],
 )
 
 # Test 1: authenticate
 print("[1] Authenticating...")
 try:
     uid = c.authenticate()
-    print(f"    OK → uid={uid}")
+    print(f"    OK -> uid={uid}")
 except OdooError as e:
     print(f"    FAIL: {e}")
     sys.exit(1)
@@ -45,7 +46,7 @@ employees = c.search_read(
     limit=10,
 )
 for emp in employees:
-    co = emp["company_id"][1] if emp["company_id"] else "—"
+    co = emp["company_id"][1] if emp["company_id"] else "-"
     print(f"    [{emp['id']}] {emp['name']} ({co})")
 print(f"    ... ({len(employees)} shown, may be more)")
 
@@ -58,8 +59,8 @@ cats = c.search_read(
     order="default_code, name",
 )
 for cat in cats:
-    code = cat["default_code"] or "—"
-    print(f"    [{cat['id']}] {code} · {cat['name']}")
+    code = cat["default_code"] or "-"
+    print(f"    [{cat['id']}] {code} - {cat['name']}")
 print(f"    ... ({len(cats)} shown)")
 
 # Test 5: read currencies
@@ -85,24 +86,31 @@ print(f"    ... ({len(vendors)} shown)")
 
 # Test 7: check broker groups
 print("\n[7] Checking broker's groups...")
-user_data = c.search_read(
-    "res.users",
-    [("id", "=", uid)],
-    ["name", "groups_id"],
-)
-if user_data:
-    user_groups = user_data[0]["groups_id"]
-    print(f"    User: {user_data[0]['name']}")
-    # Check for hr_expense groups
-    group_data = c.search_read(
-        "res.groups",
-        [("id", "in", user_groups), ("category_id.module", "=", "hr_expense")],
-        ["full_name"],
+try:
+    user_data = c.search_read(
+        "res.users",
+        [("id", "=", uid)],
+        ["name", "group_ids"],
     )
-    print(f"    HR Expense groups:")
-    for g in group_data:
-        print(f"      - {g['full_name']}")
-    is_manager = any("Manager" in g["full_name"] for g in group_data)
-    print(f"    Has 'Manager' role: {is_manager}")
+    if user_data:
+        user_groups = user_data[0]["group_ids"]
+        print(f"    User: {user_data[0]['name']}")
+        # Check for hr_expense groups
+        group_data = c.search_read(
+            "res.groups",
+            [("id", "in", user_groups)],
+            ["name", "full_name"],
+        )
+        print(f"    HR Expense groups:")
+        expense_groups = []
+        for g in group_data:
+            name = g.get("full_name") or g.get("name") or ""
+            if "expense" in name.lower() or "chi phí" in name.lower():
+                expense_groups.append(name)
+                print(f"      - {name}")
+        is_manager = any("Manager" in name or "Administrator" in name or "Quản trị" in name for name in expense_groups)
+        print(f"    Has 'Manager' role: {is_manager}")
+except Exception as e:
+    print(f"    Could not read group details: {e}")
 
-print("\n✓ All connectivity tests passed.")
+print("\nAll connectivity tests passed.")

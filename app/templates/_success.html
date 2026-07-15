@@ -1,13 +1,13 @@
 <div class="alert success">
-  <h3>✓ Đã gửi chi phí #{{ expense.id }}</h3>
+  <h3>✓ Expense #{{ expense.id }} submitted</h3>
   <table>
-    <tr><th>Tên</th><td>{{ expense.name }}</td></tr>
-    <tr><th>Trạng thái</th><td><span class="badge {{ expense.state }}">{{ expense.state | state_label }}</span></td></tr>
-    <tr><th>Công ty</th><td>{{ expense.company_id[1] if expense.company_id else '—' }}</td></tr>
-    <tr><th>Nhân viên</th><td>{{ expense.employee_id[1] if expense.employee_id else '—' }}</td></tr>
-    <tr><th>Ngày</th><td>{{ expense.date }}</td></tr>
+    <tr><th>Name</th><td>{{ expense.name }}</td></tr>
+    <tr><th>State</th><td><span class="badge {{ expense.state }}">{{ expense.state }}</span></td></tr>
+    <tr><th>Company</th><td>{{ expense.company_id[1] if expense.company_id else '—' }}</td></tr>
+    <tr><th>Employee</th><td>{{ expense.employee_id[1] if expense.employee_id else '—' }}</td></tr>
+    <tr><th>Date</th><td>{{ expense.date }}</td></tr>
     <tr>
-      <th>Số tiền</th>
+      <th>Amount</th>
       <td>
         {{ '%.2f'|format(expense.total_amount_currency) }}
         {{ expense.currency_id[1] if expense.currency_id else '' }}
@@ -16,7 +16,7 @@
   </table>
   <p>
     <a href="https://{{ odoo_domain }}/odoo/expenses/{{ expense.id }}?debug=1" target="_blank" class="btn-link">
-      Xem trên Odoo →
+      View in Odoo →
     </a>
   </p>
 </div>
