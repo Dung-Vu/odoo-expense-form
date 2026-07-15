@@ -10,9 +10,9 @@
   <div class="grid">
 
     <label class="full">
-      <span>Company <em>*</em></span>
+      <span>Công ty <em>*</em></span>
       <select name="company_id" required>
-        <option value="">-- Select company --</option>
+        <option value="">-- Chọn công ty --</option>
         {% for c in dropdowns.companies %}
           <option value="{{ c.id }}">{{ c.name }}</option>
         {% endfor %}
@@ -20,9 +20,9 @@
     </label>
 
     <label class="full">
-      <span>Employee <em>*</em></span>
+      <span>Nhân viên <em>*</em></span>
       <select name="employee_id" id="employee-id" required>
-        <option value="">-- Select employee --</option>
+        <option value="">-- Chọn nhân viên --</option>
         {% for e in dropdowns.employees %}
           <option value="{{ e.id }}" data-company-id="{{ e.company_id[0] if e.company_id else '' }}">
             {{ e.name }}{% if e.company_id %} ({{ e.company_id[1] }}){% endif %}
@@ -32,9 +32,9 @@
     </label>
 
     <label class="full">
-      <span>Category <em>*</em></span>
+      <span>Hạng mục <em>*</em></span>
       <select name="product_id" required>
-        <option value="">-- Select category --</option>
+        <option value="">-- Chọn hạng mục --</option>
         {% for p in dropdowns.categories %}
           <option value="{{ p.id }}">
             {{ p.default_code or '—' }} · {{ p.name }}
@@ -44,13 +44,13 @@
     </label>
 
     <label>
-      <span>Date <em>*</em></span>
+      <span>Ngày <em>*</em></span>
       <input type="date" name="date" required value="{{ today }}">
     </label>
 
     {% if dropdowns.currencies|length > 1 %}
       <label>
-        <span>Currency <em>*</em></span>
+        <span>Tiền tệ <em>*</em></span>
         <select name="currency_id" required>
           {% for cur in dropdowns.currencies %}
             <option value="{{ cur.id }}">{{ cur.name }} ({{ cur.symbol }})</option>
@@ -63,7 +63,7 @@
 
     <label class="full">
       <span>
-        Amount <em>*</em>
+        Số tiền <em>*</em>
         {% if dropdowns.currencies|length == 1 %}
           <small class="currency-suffix-inline">({{ dropdowns.currencies[0].name }} {{ dropdowns.currencies[0].symbol }})</small>
         {% endif %}
@@ -76,17 +76,17 @@
     {% endif %}
 
     <label class="full">
-      <span>Paid by <em>*</em></span>
+      <span>Người chi trả <em>*</em></span>
       <select name="payment_mode" id="payment-mode" required>
-        <option value="own_account" selected>Employee (to reimburse)</option>
-        <option value="company_account">Company</option>
+        <option value="own_account" selected>Nhân viên (công ty sẽ hoàn lại)</option>
+        <option value="company_account">Công ty chi trả</option>
       </select>
     </label>
 
     <label class="full" id="vendor-wrap" style="display: none;">
-      <span>Vendor <em>*</em> <small>(required when paid by Company)</small></span>
+      <span>Nhà cung cấp <em>*</em> <small>(bắt buộc khi Công ty chi trả)</small></span>
       <select name="vendor_id" id="vendor-id">
-        <option value="">-- Select vendor --</option>
+        <option value="">-- Chọn nhà cung cấp --</option>
         {% for v in dropdowns.vendors %}
           <option value="{{ v.id }}" data-company-id="{{ v.company_id[0] if v.company_id else '' }}">{{ v.name }}</option>
         {% endfor %}
@@ -94,20 +94,20 @@
     </label>
 
     <label class="full">
-      <span>Description (internal notes)</span>
-      <textarea name="description" rows="2" placeholder="e.g. Phí ship Lalamove đơn #XYZ"></textarea>
+      <span>Ghi chú <small>(nội bộ)</small></span>
+      <textarea name="description" rows="2" placeholder="vd: Phí ship Lalamove đơn #XYZ"></textarea>
     </label>
 
     <label class="full">
-      <span>Receipt <small>(PDF / image, max 16MB)</small></span>
+      <span>Hóa đơn <small>(PDF / ảnh, tối đa 16MB)</small></span>
       <input type="file" name="receipt" accept="image/*,application/pdf">
     </label>
 
   </div>
 
   <div class="actions">
-    <button type="submit" class="primary">Submit Expense</button>
-    <span class="htmx-indicator" id="loading">Submitting...</span>
+    <button type="submit" class="primary">Gửi chi phí</button>
+    <span class="htmx-indicator" id="loading">Đang gửi...</span>
   </div>
 </form>
 

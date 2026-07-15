@@ -6,6 +6,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Safety check: Only run on test environments to prevent cluttering production data
+odoo_url = os.environ.get("ODOO_URL", "")
+odoo_db = os.environ.get("ODOO_DB", "")
+if "testing" not in odoo_url.lower() and "testing" not in odoo_db.lower():
+    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing1307.odoo.com).")
+    print(f"Current ODOO_URL: {odoo_url}")
+    print("Aborting execution to protect production database.")
+    sys.exit(1)
+
 sys.path.insert(0, "app")
 from odoo_client import OdooClient, OdooError
 

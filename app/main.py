@@ -48,6 +48,22 @@ log = logging.getLogger("odoo-expense-form")
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB
 
+_STATE_LABELS = {
+    "draft": "Nháp",
+    "submitted": "Đã gửi",
+    "approved": "Đã duyệt",
+    "refused": "Từ chối",
+    "posted": "Đã ghi sổ",
+    "in_payment": "Đang thanh toán",
+    "paid": "Đã thanh toán",
+}
+
+
+@app.template_filter("state_label")
+def _state_label(state: str) -> str:
+    return _STATE_LABELS.get(state, state)
+
+
 odoo = OdooClient(
     url=os.environ["ODOO_URL"],
     db=os.environ["ODOO_DB"],
