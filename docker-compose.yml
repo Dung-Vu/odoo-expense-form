@@ -1,0 +1,9 @@
+services:
+  web:
+    build: .
+    container_name: odoo-expense-form
+    ports:
+      - "5050:5000"
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -1,0 +1,22 @@
+<div class="alert success">
+  <h3>✓ Đã gửi chi phí #{{ expense.id }}</h3>
+  <table>
+    <tr><th>Tên</th><td>{{ expense.name }}</td></tr>
+    <tr><th>Trạng thái</th><td><span class="badge {{ expense.state }}">{{ expense.state | state_label }}</span></td></tr>
+    <tr><th>Công ty</th><td>{{ expense.company_id[1] if expense.company_id else '—' }}</td></tr>
+    <tr><th>Nhân viên</th><td>{{ expense.employee_id[1] if expense.employee_id else '—' }}</td></tr>
+    <tr><th>Ngày</th><td>{{ expense.date }}</td></tr>
+    <tr>
+      <th>Số tiền</th>
+      <td>
+        {{ '%.2f'|format(expense.total_amount_currency) }}
+        {{ expense.currency_id[1] if expense.currency_id else '' }}
+      </td>
+    </tr>
+  </table>
+  <p>
+    <a href="https://{{ odoo_domain }}/odoo/expenses/{{ expense.id }}?debug=1" target="_blank" class="btn-link">
+      Xem trên Odoo →
+    </a>
+  </p>
+</div>
