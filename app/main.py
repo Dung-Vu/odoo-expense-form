@@ -247,11 +247,10 @@ def submit():
             payment_mode,
         )
         expense_id = odoo.create("hr.expense", vals)
-        log.info("Created expense id=%s, submitting...", expense_id)
+        log.info("Created expense id=%s (Draft)", expense_id)
 
-        # action_submit requires broker to be in group_hr_expense_manager
-        # (see hr.expense.action_submit line 1132 in Odoo 19 source).
-        odoo.execute("hr.expense", "action_submit", [[expense_id]])
+        # Do not automatically submit; keep in Draft state as requested
+        # odoo.execute("hr.expense", "action_submit", [[expense_id]])
 
         # Read back for confirmation
         result = odoo.search_read(
