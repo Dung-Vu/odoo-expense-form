@@ -195,8 +195,15 @@ def submit():
 
         # Build attachment command (Command.create: (0, 0, {...}))
         attachment_cmds = []
+        
+        # Support both "receipt" (singular) and "receipts" (plural, multiple files)
+        upload_files = []
         if "receipt" in request.files:
-            f = request.files["receipt"]
+            upload_files.extend(request.files.getlist("receipt"))
+        if "receipts" in request.files:
+            upload_files.extend(request.files.getlist("receipts"))
+
+        for f in upload_files:
             if f and f.filename:
                 datas = base64.b64encode(f.read()).decode("ascii")
                 attachment_cmds.append(

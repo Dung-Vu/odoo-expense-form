@@ -98,10 +98,21 @@
       <textarea name="description" rows="2" placeholder="vd: Phí ship Lalamove đơn #XYZ"></textarea>
     </label>
 
-    <label class="full">
-      <span>Hóa đơn <small>(PDF / ảnh, tối đa 16MB)</small></span>
-      <input type="file" name="receipt" accept="image/*,application/pdf">
-    </label>
+    <div class="full upload-container">
+      <span class="upload-label">Hóa đơn <small>(PDF / ảnh, tối đa 16MB/file, chọn được nhiều file)</small></span>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" name="receipts" accept="image/*,application/pdf" id="receipts-input" multiple style="display: none;">
+        <div class="upload-zone-content">
+          <svg class="upload-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span class="upload-prompt">Kéo thả file vào đây hoặc <strong>bấm để chọn</strong></span>
+        </div>
+      </div>
+      <div class="file-list" id="file-list"></div>
+    </div>
 
   </div>
 
@@ -176,6 +187,158 @@
 
   companySelect.addEventListener('change', syncCompanyFilters);
   syncCompanyFilters();
+
+  // Multi-File Upload JavaScript Handler
+  const uploadZone = document.getElementById('upload-zone');
+  const receiptsInput = document.getElementById('receipts-input');
+  const fileList = document.getElementById('file-list');
+  let selectedFiles = [];
+
+  // Trigger file dialog on click
+  uploadZone.addEventListener('click', () => {
+    receiptsInput.click();
+  });
+
+  // Handle Drag & Drop events
+  ['dragenter', 'dragover'].forEach(eventName => {
+    uploadZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    uploadZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+    }, false);
+  });
+
+  uploadZone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = Array.from(dt.files);
+    addFiles(files);
+  });
+
+  // Handle manual file selection
+  receiptsInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    addFiles(files);
+  });
+
+  function addFiles(files) {
+    const validFiles = files.filter(file => {
+      const isImgOrPdf = file.type.startsWith('image/') || file.type === 'application/pdf';
+      const isUnderLimit = file.size <= 16 * 1024 * 1024;
+      if (!isImgOrPdf) alert(`File ${file.name} không được hỗ trợ (chỉ nhận ảnh hoặc PDF)`);
+      if (!isUnderLimit) alert(`File ${file.name} vượt quá dung lượng 16MB cho phép`);
+      return isImgOrPdf && isUnderLimit;
+    });
+
+    selectedFiles = [...selectedFiles, ...validFiles];
+    updateFileInput();
+    renderFileList();
+  }
+
+  function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateFileInput();
+    renderFileList();
+  }
+
+  function updateFileInput() {
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    receiptsInput.files = dt.files;
+  }
+
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = '';
+    
+    selectedFiles.forEach((file, index) => {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item';
+
+      const fileInfo = document.createElement('div');
+      fileInfo.className = 'file-info';
+
+      // Create preview or icon
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.className = 'file-preview';
+        img.src = URL.createObjectURL(file);
+        img.onload = () => URL.revokeObjectURL(img.src);
+        fileInfo.appendChild(img);
+      } else {
+        // PDF Icon
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'file-icon-placeholder';
+        iconDiv.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        `;
+        fileInfo.appendChild(iconDiv);
+      }
+
+      const fileMeta = document.createElement('div');
+      fileMeta.className = 'file-meta';
+      
+      const fileName = document.createElement('span');
+      fileName.className = 'file-name-text';
+      fileName.textContent = file.name;
+      
+      const fileSize = document.createElement('span');
+      fileSize.className = 'file-size-text';
+      fileSize.textContent = formatBytes(file.size);
+
+      fileMeta.appendChild(fileName);
+      fileMeta.appendChild(fileSize);
+      fileInfo.appendChild(fileMeta);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn-remove-file';
+      removeBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+      `;
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFile(index);
+      });
+
+      fileItem.appendChild(fileInfo);
+      fileItem.appendChild(removeBtn);
+      fileList.appendChild(fileItem);
+    });
+  }
+
+  // Clear files when form is successfully submitted (using HTMX events)
+  document.body.addEventListener('htmx:afterRequest', (e) => {
+    // If the request succeeded and resulted in _success.html being rendered
+    if (e.detail.successful && e.detail.target.id === 'result' && e.detail.xhr.status === 200) {
+      selectedFiles = [];
+      updateFileInput();
+      renderFileList();
+    }
+  });
 
 </script>
 
