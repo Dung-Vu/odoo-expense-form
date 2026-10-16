@@ -1,8 +1,30 @@
+# Environment variables
 .env
+.env.local
+
+# Byte-compiled / optimized files
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+
+# Virtual environments
 .venv/
 venv/
-.DS_Store
+ENV/
+env/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
 *.log
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDEs & Editors
+.vscode/
+.idea/

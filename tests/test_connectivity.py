@@ -1,27 +1,37 @@
-"""Quick connectivity test against Odoo testing1307."""
+"""Quick connectivity test against Odoo testing2007."""
+
 import os
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ensure utf-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+# Setup project root and load environment variables
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 # Safety check: Only run on test environments to prevent cluttering production data
 odoo_url = os.environ.get("ODOO_URL", "")
 odoo_db = os.environ.get("ODOO_DB", "")
 if "testing" not in odoo_url.lower() and "testing" not in odoo_db.lower():
-    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing1307.odoo.com).")
+    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing2007.odoo.com).")
     print(f"Current ODOO_URL: {odoo_url}")
     print("Aborting execution to protect production database.")
     sys.exit(1)
 
-sys.path.insert(0, "app")
-from odoo_client import OdooClient, OdooError
+from app.odoo_client import OdooClient, OdooError  # noqa: E402
 
-print(f"ODOO_URL  = {os.environ['ODOO_URL']}")
-print(f"ODOO_DB   = {os.environ['ODOO_DB']}")
-print(f"ODOO_UID  = {os.environ['ODOO_UID']}")
-print(f"API_KEY   = {os.environ['ODOO_API_KEY'][:8]}...{os.environ['ODOO_API_KEY'][-4:]}")
+print(f"ODOO_URL  = {os.environ.get('ODOO_URL')}")
+print(f"ODOO_DB   = {os.environ.get('ODOO_DB')}")
+print(f"ODOO_UID  = {os.environ.get('ODOO_UID')}")
+api_key = os.environ.get("ODOO_API_KEY", "")
+print(f"API_KEY   = {api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "API_KEY   = [SET]")
 print()
 
 c = OdooClient(
@@ -55,7 +65,7 @@ employees = c.search_read(
     limit=10,
 )
 for emp in employees:
-    co = emp["company_id"][1] if emp["company_id"] else "-"
+    co = emp["company_id"][1] if emp.get("company_id") else "-"
     print(f"    [{emp['id']}] {emp['name']} ({co})")
 print(f"    ... ({len(employees)} shown, may be more)")
 
@@ -68,7 +78,7 @@ cats = c.search_read(
     order="default_code, name",
 )
 for cat in cats:
-    code = cat["default_code"] or "-"
+    code = cat.get("default_code") or "-"
     print(f"    [{cat['id']}] {code} - {cat['name']}")
 print(f"    ... ({len(cats)} shown)")
 
@@ -110,14 +120,17 @@ try:
             [("id", "in", user_groups)],
             ["name", "full_name"],
         )
-        print(f"    HR Expense groups:")
+        print("    HR Expense groups:")
         expense_groups = []
         for g in group_data:
             name = g.get("full_name") or g.get("name") or ""
             if "expense" in name.lower() or "chi phí" in name.lower():
                 expense_groups.append(name)
                 print(f"      - {name}")
-        is_manager = any("Manager" in name or "Administrator" in name or "Quản trị" in name for name in expense_groups)
+        is_manager = any(
+            "Manager" in name or "Administrator" in name or "Quản trị" in name
+            for name in expense_groups
+        )
         print(f"    Has 'Manager' role: {is_manager}")
 except Exception as e:
     print(f"    Could not read group details: {e}")

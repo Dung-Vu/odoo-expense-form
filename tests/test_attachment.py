@@ -1,23 +1,33 @@
 """Test expense creation WITH file attachment."""
+
+import base64
 import os
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
-import base64
+from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ensure utf-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+# Setup project root and load environment variables
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 # Safety check: Only run on test environments to prevent cluttering production data
 odoo_url = os.environ.get("ODOO_URL", "")
 odoo_db = os.environ.get("ODOO_DB", "")
 if "testing" not in odoo_url.lower() and "testing" not in odoo_db.lower():
-    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing1307.odoo.com).")
+    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing2007.odoo.com).")
     print(f"Current ODOO_URL: {odoo_url}")
     print("Aborting execution to protect production database.")
     sys.exit(1)
 
-sys.path.insert(0, "app")
-from odoo_client import OdooClient, OdooError
+from app.odoo_client import OdooClient, OdooError  # noqa: E402
 
 c = OdooClient(
     url=os.environ["ODOO_URL"],
@@ -32,21 +42,25 @@ PNG_DATA = base64.b64decode(
 )
 
 vals = {
-    "company_id": 1,            # Bonario Vietnam
-    "employee_id": 344,          # BÙI THỊ NHÃ UYÊN
-    "product_id": 172089,        # KHSHIPLL
-    "currency_id": 22,           # VND
+    "company_id": 1,  # Bonario Vietnam
+    "employee_id": 344,  # BÙI THỊ NHÃ UYÊN
+    "product_id": 172089,  # KHSHIPLL
+    "currency_id": 22,  # VND
     "total_amount_currency": 75000.0,
     "date": "2026-07-14",
     "description": "[TEST] Phí ship Lalamove + receipt attachment",
     "payment_mode": "own_account",
     "attachment_ids": [
-        (0, 0, {
-            "name": "test-receipt.png",
-            "datas": base64.b64encode(PNG_DATA).decode("ascii"),
-            "mimetype": "image/png",
-            "res_model": "hr.expense",
-        })
+        (
+            0,
+            0,
+            {
+                "name": "test-receipt.png",
+                "datas": base64.b64encode(PNG_DATA).decode("ascii"),
+                "mimetype": "image/png",
+                "res_model": "hr.expense",
+            },
+        )
     ],
 }
 
@@ -62,8 +76,7 @@ print("\n[2] Reading back...")
 result = c.search_read(
     "hr.expense",
     [("id", "=", expense_id)],
-    ["id", "name", "state", "total_amount_currency",
-     "attachment_ids", "nb_attachment"],
+    ["id", "name", "state", "total_amount_currency", "attachment_ids", "nb_attachment"],
 )
 expense = result[0]
 print(f"    Name:        {expense['name']}")
@@ -88,7 +101,10 @@ c.execute("hr.expense", "action_submit", [[expense_id]])
 result = c.search_read("hr.expense", [("id", "=", expense_id)], ["state"])
 print(f"    State: {result[0]['state']}")
 
-print(f"\n✓ Attachment test passed.")
-from urllib.parse import urlparse
-public_domain = os.environ.get("PUBLIC_ODOO_DOMAIN") or urlparse(os.environ["ODOO_URL"]).netloc or "odoo.com"
+print("\n✓ Attachment test passed.")
+public_domain = (
+    os.environ.get("PUBLIC_ODOO_DOMAIN")
+    or urlparse(os.environ["ODOO_URL"]).netloc
+    or "odoo.com"
+)
 print(f"\n→ View: https://{public_domain}/odoo/expenses/{expense_id}?debug=1")

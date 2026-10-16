@@ -28,6 +28,9 @@ def _int_list(value: str) -> list[int]:
 # Whitelist configuration (overridable via .env)
 COMPANY_IDS = _int_list(os.environ.get("COMPANY_IDS", "1,11"))
 EMPLOYEE_NAME_KEYWORDS = [w.strip() for w in os.environ.get("EMPLOYEE_NAME_KEYWORDS", "Phước,Thành,Công,Biên,Chinh").split(",") if w.strip()]
+# Exact employee IDs supplement the name-keyword whitelist. Use this for
+# employees whose given name is shared with people who should stay hidden.
+EMPLOYEE_IDS = _int_list(os.environ.get("EMPLOYEE_IDS", ""))
 # Whitelisted expense category IDs (product.product). Use Odoo IDs — stable and
 # unambiguous. See test_categories.py or run:
 #   python -c "from app.odoo_client import OdooClient; ..."
@@ -38,6 +41,9 @@ CATEGORY_IDS = _int_list(os.environ.get(
 # Allowed currency codes (res.currency.name). If only 1 matches, the form
 # hides the currency dropdown and submits it as a hidden field.
 CURRENCY_CODES = [w.strip() for w in os.environ.get("CURRENCY_CODES", "VND").split(",") if w.strip()]
+# Employee IDs whose expenses are auto-submitted (action_submit) after creation.
+# Other employees' expenses stay in Draft. Default: anh Bảo (138 Bonario, 396 Ordinaire).
+AUTO_SUBMIT_EMPLOYEE_IDS = _int_list(os.environ.get("AUTO_SUBMIT_EMPLOYEE_IDS", "138,396"))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,8 +98,8 @@ def get_dropdowns():
         return _cache["data"]
 
     log.info(
-        "Refreshing dropdown cache: companies=%s, employees_keywords=%s, category_ids=%s, currencies=%s",
-        COMPANY_IDS, EMPLOYEE_NAME_KEYWORDS, CATEGORY_IDS, CURRENCY_CODES,
+        "Refreshing dropdown cache: companies=%s, employees_keywords=%s, employee_ids=%s, category_ids=%s, currencies=%s",
+        COMPANY_IDS, EMPLOYEE_NAME_KEYWORDS, EMPLOYEE_IDS, CATEGORY_IDS, CURRENCY_CODES,
     )
 
     # Companies: only whitelisted IDs
@@ -103,7 +109,7 @@ def get_dropdowns():
     company_ids = [c["id"] for c in companies]
 
     # Employees: fetch ALL (no company filter so we see Ordinaire),
-    # then filter in Python by last-word match against EMPLOYEE_NAME_KEYWORDS.
+    # then filter in Python by last-word match or exact employee ID.
     # This handles multi-company duplicates (same person in Bonario + Ordinaire)
     # AND avoids the `filter_for_expense` field which is not consistently set.
     all_employees = odoo.search_read(
@@ -115,7 +121,7 @@ def get_dropdowns():
     keywords_lower = {k.lower() for k in EMPLOYEE_NAME_KEYWORDS}
     employees = [
         e for e in all_employees
-        if _last_word(e["name"]) in keywords_lower
+        if _last_word(e["name"]) in keywords_lower or e["id"] in EMPLOYEE_IDS
     ]
 
     # Categories: filter by exact product.product IDs from CATEGORY_IDS.
@@ -138,9 +144,14 @@ def get_dropdowns():
             ["id", "name", "symbol"],
             order="name",
         ),
+        # Vendors: company-specific + shared partners (no company), same as
+        # what Odoo itself lets users pick on an expense.
         "vendors": odoo.search_read(
             "res.partner",
-            [("supplier_rank", ">", 0), ("company_id", "in", company_ids)],
+            [
+                ("supplier_rank", ">", 0),
+                "|", ("company_id", "in", company_ids), ("company_id", "=", False),
+            ],
             ["id", "name", "company_id"],
             order="name",
         ),
@@ -249,8 +260,12 @@ def submit():
         expense_id = odoo.create("hr.expense", vals)
         log.info("Created expense id=%s (Draft)", expense_id)
 
-        # Do not automatically submit; keep in Draft state as requested
-        # odoo.execute("hr.expense", "action_submit", [[expense_id]])
+        # Auto-submit only for whitelisted employees (e.g. anh Bảo)
+        if employee_id in AUTO_SUBMIT_EMPLOYEE_IDS:
+            odoo.execute("hr.expense", "action_submit", [[expense_id]])
+            log.info("Auto-submitted expense id=%s for employee=%s", expense_id, employee_id)
+        else:
+            log.info("Skipping auto-submit for employee=%s (not in AUTO_SUBMIT_EMPLOYEE_IDS)", employee_id)
 
         # Read back for confirmation
         result = odoo.search_read(

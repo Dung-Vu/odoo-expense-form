@@ -1,22 +1,32 @@
-"""Full create + submit test against testing1307."""
+"""Full create + submit test against testing2007."""
+
 import os
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
+from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ensure utf-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+# Setup project root and load environment variables
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 # Safety check: Only run on test environments to prevent cluttering production data
 odoo_url = os.environ.get("ODOO_URL", "")
 odoo_db = os.environ.get("ODOO_DB", "")
 if "testing" not in odoo_url.lower() and "testing" not in odoo_db.lower():
-    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing1307.odoo.com).")
+    print("ERROR: Test scripts are restricted to Odoo TEST servers (e.g. testing2007.odoo.com).")
     print(f"Current ODOO_URL: {odoo_url}")
     print("Aborting execution to protect production database.")
     sys.exit(1)
 
-sys.path.insert(0, "app")
-from odoo_client import OdooClient, OdooError
+from app.odoo_client import OdooClient, OdooError  # noqa: E402
 
 c = OdooClient(
     url=os.environ["ODOO_URL"],
@@ -26,10 +36,10 @@ c = OdooClient(
 )
 
 # Test inputs
-COMPANY_ID = 1       # Bonario Vietnam
-EMPLOYEE_ID = 344     # BÙI THỊ NHÃ UYÊN
-PRODUCT_ID = 172089   # KHSHIPLL · [KH]-Phí ship Lalamove
-CURRENCY_ID = 22      # VND
+COMPANY_ID = 1  # Bonario Vietnam
+EMPLOYEE_ID = 344  # BÙI THỊ NHÃ UYÊN
+PRODUCT_ID = 172089  # KHSHIPLL · [KH]-Phí ship Lalamove
+CURRENCY_ID = 22  # VND
 AMOUNT = 50000.0
 DATE = "2026-07-14"
 DESCRIPTION = "[TEST] Phí ship Lalamove - automated test"
@@ -57,20 +67,31 @@ print("\n[2] Reading back the draft expense...")
 result = c.search_read(
     "hr.expense",
     [("id", "=", expense_id)],
-    ["id", "name", "state", "company_id", "employee_id", "total_amount_currency",
-     "currency_id", "product_id", "payment_mode", "date", "create_uid"],
+    [
+        "id",
+        "name",
+        "state",
+        "company_id",
+        "employee_id",
+        "total_amount_currency",
+        "currency_id",
+        "product_id",
+        "payment_mode",
+        "date",
+        "create_uid",
+    ],
 )
 expense = result[0]
 print(f"    ID:           {expense['id']}")
 print(f"    Name:         {expense['name']}")
 print(f"    State:        {expense['state']}")
-print(f"    Company:      {expense['company_id'][1] if expense['company_id'] else '—'}")
-print(f"    Employee:     {expense['employee_id'][1] if expense['employee_id'] else '—'}")
-print(f"    Product:      {expense['product_id'][1] if expense['product_id'] else '—'}")
+print(f"    Company:      {expense['company_id'][1] if expense.get('company_id') else '—'}")
+print(f"    Employee:     {expense['employee_id'][1] if expense.get('employee_id') else '—'}")
+print(f"    Product:      {expense['product_id'][1] if expense.get('product_id') else '—'}")
 print(f"    Amount:       {expense['total_amount_currency']} {expense['currency_id'][1]}")
 print(f"    Payment mode: {expense['payment_mode']}")
 print(f"    Date:         {expense['date']}")
-print(f"    Create UID:   {expense['create_uid'][1] if expense['create_uid'] else '—'}")
+print(f"    Create UID:   {expense['create_uid'][1] if expense.get('create_uid') else '—'}")
 
 print("\n[3] Calling action_submit()...")
 try:
@@ -89,10 +110,15 @@ result = c.search_read(
 expense = result[0]
 print(f"    State:          {expense['state']}")
 print(f"    Approval state: {expense['approval_state']}")
-print(f"    Manager:        {expense['manager_id'][1] if expense['manager_id'] else '(empty - will auto-set)'}")
+print(
+    f"    Manager:        {expense['manager_id'][1] if expense.get('manager_id') else '(empty - will auto-set)'}"
+)
 print(f"    Followers:      {len(expense['message_follower_ids'])} persons")
 
-print(f"\n✓ Full test passed.")
-from urllib.parse import urlparse
-public_domain = os.environ.get("PUBLIC_ODOO_DOMAIN") or urlparse(os.environ["ODOO_URL"]).netloc or "odoo.com"
+print("\n✓ Full test passed.")
+public_domain = (
+    os.environ.get("PUBLIC_ODOO_DOMAIN")
+    or urlparse(os.environ["ODOO_URL"]).netloc
+    or "odoo.com"
+)
 print(f"\n→ View in Odoo: https://{public_domain}/odoo/expenses/{expense_id}?debug=1")

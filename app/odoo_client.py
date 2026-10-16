@@ -1,13 +1,14 @@
 """Minimal JSON-RPC client for Odoo.
 
 Usage:
-    from odoo_client import OdooClient
-    c = OdooClient(url, db, username, api_key)
+    from app.odoo_client import OdooClient
+    c = OdooClient(url, db, api_key, uid)
     uid = c.authenticate()
     expense_id = c.create('hr.expense', {...})
     c.execute('hr.expense', 'action_submit', [[expense_id]])
 """
 
+from typing import Any, Dict, List, Optional, Union
 import httpx
 
 
@@ -16,14 +17,23 @@ class OdooError(Exception):
 
 
 class OdooClient:
-    def __init__(self, url, db, api_key, uid, timeout=30.0):
+    """Wrapper around Odoo's JSON-RPC endpoint (`/jsonrpc`)."""
+
+    def __init__(
+        self,
+        url: str,
+        db: str,
+        api_key: str,
+        uid: Union[int, str],
+        timeout: float = 30.0,
+    ) -> None:
         self.url = url.rstrip("/")
         self.db = db
         self.api_key = api_key
         self._uid = int(uid)
         self._client = httpx.Client(timeout=timeout)
 
-    def _call(self, service, method, args):
+    def _call(self, service: str, method: str, args: list) -> Any:
         payload = {
             "jsonrpc": "2.0",
             "method": "call",
@@ -43,10 +53,18 @@ class OdooClient:
             raise OdooError(f"{method} failed: {msg} (code={err.get('code')})")
         return data.get("result")
 
-    def authenticate(self):
+    def authenticate(self) -> int:
+        """Return the configured broker UID."""
         return self._uid
 
-    def execute(self, model, method, args=None, kwargs=None):
+    def execute(
+        self,
+        model: str,
+        method: str,
+        args: Optional[list] = None,
+        kwargs: Optional[dict] = None,
+    ) -> Any:
+        """Call an execute_kw method on an Odoo model."""
         uid = self.authenticate()
         full_args = [
             self.db,
@@ -59,7 +77,8 @@ class OdooClient:
         ]
         return self._call("object", "execute_kw", full_args)
 
-    def create(self, model, vals):
+    def create(self, model: str, vals: Union[Dict[str, Any], List[Dict[str, Any]]]) -> int:
+        """Create record(s) on `model` and return the newly created ID."""
         if isinstance(vals, dict):
             vals = [vals]
         result = self.execute(model, "create", [vals])
@@ -67,11 +86,22 @@ class OdooClient:
             raise OdooError(f"create() on {model} returned no ID")
         return result[0] if isinstance(result, list) else result
 
-    def write(self, model, ids, vals):
-        return self.execute(model, "write", [[ids], vals])
+    def write(self, model: str, ids: Union[int, List[int]], vals: Dict[str, Any]) -> bool:
+        """Update record(s) with `vals`."""
+        target_ids = [ids] if isinstance(ids, int) else ids
+        return self.execute(model, "write", [target_ids, vals])
 
-    def search_read(self, model, domain, fields=None, limit=None, offset=None, order=None):
-        kwargs = {}
+    def search_read(
+        self,
+        model: str,
+        domain: list,
+        fields: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        order: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Perform search_read on `model` with domain, fields, and ordering."""
+        kwargs: Dict[str, Any] = {}
         if fields:
             kwargs["fields"] = fields
         if limit is not None:
